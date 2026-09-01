@@ -128,8 +128,7 @@ async function handleCommand(
     // Check if a web-registered user has matching telegram_username
     if (username) {
       const { default: postgres } = await import('postgres');
-      const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-      const db = postgres(process.env.DATABASE_URL!, { ssl: isProd ? 'require' : false, max: 2 });
+      const db = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 2 });
       try {
         const rows = await db`
           SELECT * FROM users
@@ -261,8 +260,7 @@ ${enrichmentStatus}
       return;
     }
     const { default: postgres } = await import('postgres');
-    const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-    const db = postgres(process.env.DATABASE_URL!, { ssl: isProd ? 'require' : false, max: 2 });
+    const db = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 2 });
     try {
       await db`UPDATE users SET phone_number = ${phone}, updated_at = now() WHERE id = ${user.id}`;
     } finally {

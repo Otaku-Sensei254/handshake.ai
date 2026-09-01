@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserEventResponses, updateEventInsights } from "@/lib/db";
+import { updateEventInsights } from "@/lib/db";
 import { generateGeminiText } from "@/lib/gemini";
 import postgres from "postgres";
 
-const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: isProd ? 'require' : false, max: 5 });
+const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 5 });
 
 export async function POST(
   req: NextRequest,
@@ -36,8 +35,9 @@ export async function POST(
 
     // 2. Format participant details for Gemini
     const formattedParticipants = participants.map((p, index) => {
-      const respStr = Array.isArray(p.responses) 
-        ? p.responses.map((r: any) => `Q: ${r.prompt_text}\nA: ${r.response_text}`).join("\n")
+      const responses = typeof p.responses === 'string' ? JSON.parse(p.responses) : p.responses;
+      const respStr = Array.isArray(responses) && responses.length > 0
+        ? responses.map((r: { prompt_text: string; response_text: string }) => `Q: ${r.prompt_text}\nA: ${r.response_text}`).join("\n")
         : "No responses";
       return `Participant #${index + 1}:
 Name: ${p.name}

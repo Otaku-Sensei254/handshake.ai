@@ -5,6 +5,9 @@ async function migrate() {
   console.log('🔄 Running database migrations...');
 
   try {
+    await sql`CREATE EXTENSION IF NOT EXISTS vector`;
+    await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+    console.log('✅ Extensions enabled (vector, pgcrypto)');
     // 1. Create events table
     await sql`
       CREATE TABLE IF NOT EXISTS events (
@@ -36,6 +39,42 @@ async function migrate() {
     `;
     console.log('✅ Created organizers table');
 
+    // 2b. Create users table
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        telegram_id BIGINT NOT NULL,
+        telegram_username TEXT,
+        phone_number TEXT,
+        wallet_address TEXT,
+        accept_all_matches BOOLEAN NOT NULL DEFAULT false,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        description TEXT NOT NULL,
+        goals TEXT NOT NULL,
+        challenges TEXT NOT NULL,
+        offers TEXT NOT NULL,
+        enrichments JSONB DEFAULT '{"websites": []}'::jsonb,
+        goal_embedding vector(1536),
+        challenge_embedding vector(1536),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(telegram_id)
+      )
+    `;
+    console.log('✅ Created users table');
+
+    // 2c. Create onboarding_sessions table
+    await sql`
+      CREATE TABLE IF NOT EXISTS onboarding_sessions (
+        telegram_id BIGINT PRIMARY KEY,
+        session JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+    console.log('✅ Created onboarding_sessions table');
+
     // 3. Create event_prompts table
     await sql`
       CREATE TABLE IF NOT EXISTS event_prompts (
@@ -60,6 +99,55 @@ async function migrate() {
       )
     `;
     console.log('✅ Created user_event_responses table');
+
+    // 5. Create matches table
+    await sql`
+      CREATE TABLE IF NOT EXISTS matches (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_a_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_b_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        similarity_score FLOAT,
+        agent_a_score FLOAT,
+        agent_b_score FLOAT,
+        transcript JSONB DEFAULT '[]'::jsonb,
+        rationale TEXT,
+        conversation_starter TEXT,
+        collaboration_opportunities JSONB DEFAULT '[]'::jsonb,
+        shared_tech_stack JSONB DEFAULT '[]'::jsonb,
+        status TEXT NOT NULL DEFAULT 'negotiating',
+        user_a_consent BOOLEAN DEFAULT false,
+        user_b_consent BOOLEAN DEFAULT false,
+        user_a_feedback INT,
+        user_b_feedback INT,
+        tx_hash TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(user_a_id, user_b_id)
+      )
+    `;
+    console.log('✅ Created matches table');
+
+    // 6. Add match_scope to events
+    await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS match_scope TEXT NOT NULL DEFAULT 'event'`;
+    console.log('✅ Added match_scope to events');
+
+    // 7. Create event_sections table
+    await sql`
+      CREATE TABLE IF NOT EXISTS event_sections (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(event_id, code)
+      )
+    `;
+    console.log('✅ Created event_sections table');
+
+    // 8. Add section_id to user_event_responses
+    await sql`ALTER TABLE user_event_responses ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES event_sections(id) ON DELETE SET NULL`;
+    console.log('✅ Added section_id to user_event_responses');
 
     console.log('🚀 Migrations completed successfully!');
   } catch (err) {

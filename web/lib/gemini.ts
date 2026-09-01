@@ -5,8 +5,8 @@ if (typeof dns.setDefaultResultOrder === 'function') {
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL ?? 'gemini-2.5-flash';
-const GEMINI_EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL ?? 'gemini-embedding-2';
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL ?? 'gemini-3.6-flash';
+const GEMINI_EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL ?? 'text-embedding-004';
 const GEMINI_EMBEDDING_DIMENSIONS = parseInt(process.env.GEMINI_EMBEDDING_DIMENSIONS ?? '1536', 10);
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -82,13 +82,23 @@ async function postGemini<T>(model: string, method: string, body: unknown, retri
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Gemini API error ${response.status}: ${text}`);
+        if (response.status === 400 || response.status < 500) {
+          throw new Error(`Gemini API error ${response.status}: ${text}`);
+        }
+        if (attempt === retries) {
+          throw new Error(`Gemini API error ${response.status}: ${text}`);
+        }
+        console.warn(`[Gemini] ${response.status} error. Retrying in ${delay}ms (Attempt ${attempt}/${retries})...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
       }
 
       return (await response.json()) as T;
-    } catch (err: any) {
-      if (attempt === retries) throw err;
-      console.warn(`[Gemini] Connection or rate limit error: ${err.message}. Retrying in ${delay}ms...`);
+    } catch (err: unknown) {
+      if (attempt === retries || (err instanceof Error && err.message.includes('API error 400'))) throw err;
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[Gemini] Connection or rate limit error: ${error.message}. Retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= 2;
     }
@@ -134,7 +144,7 @@ export async function generateGeminiText(
     }
 
     const models = getModelRotation(OPENROUTER_MODEL);
-    let lastError: any = null;
+    let lastError: Error | null = null;
 
     for (const model of models) {
       try {
@@ -148,9 +158,10 @@ export async function generateGeminiText(
         const text = data.choices?.[0]?.message?.content?.trim();
         if (!text) throw new Error('Empty response from OpenRouter');
         return text;
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[OpenRouter] Model ${model} failed: ${err.message}. Retrying next model...`);
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        lastError = error;
+        console.warn(`[OpenRouter] Model ${model} failed: ${error.message}. Retrying next model...`);
         await new Promise((r) => setTimeout(r, 800));
       }
     }
@@ -207,7 +218,7 @@ export async function streamGeminiText(
     }
 
     const models = getModelRotation(OPENROUTER_MODEL);
-    let lastError: any = null;
+    let lastError: Error | null = null;
 
     for (const model of models) {
       try {
@@ -252,7 +263,7 @@ export async function streamGeminiText(
             const raw = trimmed.slice(6).trim();
             if (raw === '[DONE]') continue;
             
-            let parsedData: any = null;
+            let parsedData: Record<string, unknown> | null = null;
             try {
               parsedData = JSON.parse(raw);
             } catch {
@@ -261,9 +272,11 @@ export async function streamGeminiText(
 
             if (parsedData) {
               if (parsedData.error) {
-                throw new Error(`OpenRouter streaming error: ${parsedData.error.message || JSON.stringify(parsedData.error)}`);
+                const errObj = parsedData.error as Record<string, unknown>;
+                throw new Error(`OpenRouter streaming error: ${String(errObj.message || JSON.stringify(parsedData.error))}`);
               }
-              const text = parsedData.choices?.[0]?.delta?.content ?? '';
+              const choices = parsedData.choices as Array<{ delta?: { content?: string } }> | undefined;
+              const text = choices?.[0]?.delta?.content ?? '';
               if (text) {
                 fullText += text;
                 onToken(text);
@@ -274,9 +287,10 @@ export async function streamGeminiText(
 
         if (!fullText) throw new Error('Empty streaming response from OpenRouter');
         return fullText;
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[OpenRouter Stream] Model ${model} failed: ${err.message}. Retrying next model...`);
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        lastError = error;
+        console.warn(`[OpenRouter Stream] Model ${model} failed: ${error.message}. Retrying next model...`);
         await new Promise((r) => setTimeout(r, 800));
       }
     }
@@ -299,7 +313,7 @@ export async function streamGeminiText(
 
   const url = `${GEMINI_BASE_URL}/${modelName(GEMINI_TEXT_MODEL)}:streamGenerateContent?alt=sse`;
   let response: Response | null = null;
-  let retries = 3;
+  const retries = 3;
   let delay = 2000;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -321,9 +335,10 @@ export async function streamGeminiText(
         continue;
       }
       break;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (attempt === retries) throw err;
-      console.warn(`[Gemini Stream] Connection or rate limit error: ${err.message}. Retrying in ${delay}ms...`);
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[Gemini Stream] Connection or rate limit error: ${error.message}. Retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= 2;
     }
@@ -421,15 +436,16 @@ export async function generateGeminiEmbedding(text: string): Promise<number[]> {
         content: {
           parts: [{ text }],
         },
-        output_dimensionality: GEMINI_EMBEDDING_DIMENSIONS,
+        outputDimensionality: GEMINI_EMBEDDING_DIMENSIONS,
       }
     );
 
     const values = data.embedding?.values;
     if (!values?.length) throw new Error('Empty embedding from Gemini');
     return values;
-  } catch (err: any) {
-    console.warn(`[Gemini Embedding] API failed (${err.message}). Using offline fallback vectorizer.`);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.warn(`[Gemini Embedding] API failed (${error.message}). Using offline fallback vectorizer.`);
     return generateFallbackEmbedding(text, GEMINI_EMBEDDING_DIMENSIONS);
   }
 }

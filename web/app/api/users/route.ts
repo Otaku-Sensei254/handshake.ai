@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import postgres from "postgres";
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: isProd ? 'require' : false, max: 5 });
+const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 5 });
 
 export async function GET() {
   try {

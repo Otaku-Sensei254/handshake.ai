@@ -158,8 +158,18 @@ export interface Event {
   name: string;
   organizer_name: string;
   organizer_id?: string;
+  match_scope: 'event' | 'section';
   created_at: string;
   ai_insights?: string;
+}
+
+export interface EventSection {
+  id: string;
+  event_id: string;
+  name: string;
+  code: string;
+  description?: string;
+  created_at: string;
 }
 
 export interface EventPrompt {
@@ -174,10 +184,12 @@ export interface UserEventResponse {
   id: string;
   user_id: string;
   event_id: string;
+  section_id?: string;
   responses: Array<{ prompt_id: string; prompt_text: string; response_text: string }>;
   created_at: string;
   // enriched fields
   user_name?: string;
   user_username?: string;
+  section_name?: string;
 }
 

@@ -19,6 +19,7 @@ import {
   getDb,
   getEventByCode,
   getEventPrompts,
+  getEventSections,
   saveUserEventResponses,
 } from '../db/supabase';
 import { generateUserEmbeddings } from '../matching/embeddings';
@@ -28,7 +29,15 @@ import { scrapeAndExtract } from '../enrichment/scraper';
 import { parseResume, downloadTelegramFile } from '../enrichment/resume';
 import { OnboardingSession, ProfileEnrichments, EventResponseSession } from '../types';
 
-type BotSession = OnboardingSession | EventResponseSession;
+interface SectionSelectionSession {
+  type: 'section_selection';
+  eventId: string;
+  eventCode: string;
+  eventName: string;
+  sections: Array<{ id: string; name: string; code: string }>;
+}
+
+type BotSession = OnboardingSession | EventResponseSession | SectionSelectionSession;
 const sessions = new Map<number, BotSession>();
 
 const ENRICHMENT_PROMPT = `
@@ -386,6 +395,29 @@ Your agent will reference this in introductions.`,
         return;
       }
 
+      // Check if event has sections
+      if (event.match_scope === 'section') {
+        const sections = await getEventSections(event.id);
+        if (sections.length > 0) {
+          const sectionList = sections.map((s, i) => `${i + 1}. *${s.name}* (${s.code})`).join('\n');
+          const session = {
+            type: 'section_selection' as const,
+            eventId: event.id,
+            eventCode: event.code,
+            eventName: event.name,
+            sections: sections.map(s => ({ id: s.id, name: s.name, code: s.code })),
+          };
+          sessions.set(telegramId, session);
+
+          await bot.sendMessage(
+            chatId,
+            `🎟️ *Joining event: ${event.name}*\n\nThis event has multiple sections. Please select your section:\n\n${sectionList}\n\nReply with the *number* of your section.`,
+            { parse_mode: 'Markdown' }
+          );
+          return;
+        }
+      }
+
       const prompts = await getEventPrompts(event.id);
       if (prompts.length === 0) {
         await saveUserEventResponses(user.id, event.id, []);
@@ -543,6 +575,51 @@ Your agent will use this in introductions.`,
       return;
     }
 
+    // Handle section selection
+    if ('type' in session && session.type === 'section_selection') {
+      const selection = parseInt(msg.text, 10);
+      if (isNaN(selection) || selection < 1 || selection > session.sections.length) {
+        await bot.sendMessage(chatId, `❌ Please enter a number between 1 and ${session.sections.length}.`);
+        return;
+      }
+
+      const selectedSection = session.sections[selection - 1];
+      const prompts = await getEventPrompts(session.eventId);
+
+      if (prompts.length === 0) {
+        const user = await getUserByTelegramId(telegramId);
+        if (user) {
+          await saveUserEventResponses(user.id, session.eventId, [], selectedSection.id);
+        }
+        sessions.delete(telegramId);
+        await bot.sendMessage(
+          chatId,
+          `🎉 *Successfully joined ${session.eventName} — ${selectedSection.name}!*\nNo custom questions for this event.`
+        );
+        return;
+      }
+
+      const responseSession: EventResponseSession = {
+        type: 'event_response',
+        eventId: session.eventId,
+        eventCode: session.eventCode,
+        eventName: session.eventName,
+        sectionId: selectedSection.id,
+        sectionName: selectedSection.name,
+        currentPromptIndex: 0,
+        prompts: prompts.map((p) => ({ id: p.id, prompt_text: p.prompt_text })),
+        responses: [],
+      };
+      sessions.set(telegramId, responseSession);
+
+      await bot.sendMessage(
+        chatId,
+        `✅ Joined *${selectedSection.name}*\n\n*Question 1:* ${prompts[0].prompt_text}`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
     if ('type' in session && session.type === 'event_response') {
       try {
         await bot.sendChatAction(chatId, 'typing');
@@ -565,7 +642,7 @@ Your agent will use this in introductions.`,
           sessions.delete(telegramId);
           const user = await getUserByTelegramId(telegramId);
           if (user) {
-            await saveUserEventResponses(user.id, session.eventId, session.responses);
+            await saveUserEventResponses(user.id, session.eventId, session.responses, session.sectionId);
             await bot.sendMessage(
               chatId,
               `🎉 *Event Registration Complete!*\n\nThank you for responding. Your details have been submitted to the event organizers for *${session.eventName}*.`,
@@ -593,8 +670,8 @@ Your agent will use this in introductions.`,
               `;
 
               const { goalEmbedding, challengeEmbedding } = await generateUserEmbeddings(
-                enriched.goals,
-                enriched.challenges
+                String(enriched.goals || ''),
+                String(enriched.challenges || '')
               );
               await updateUserEmbeddings(user.id, goalEmbedding, challengeEmbedding);
 
@@ -641,23 +718,26 @@ Your agent will use this in introductions.`,
         try {
           const profileData = await extractProfileFromHistory(onboardingSession.history);
 
+          const safeGoals = String(profileData.goals || '');
+          const safeChallenges = String(profileData.challenges || '');
+
           const user = await upsertUser({
             telegram_id: telegramId,
             telegram_username: msg.from?.username,
             phone_number: undefined,
             accept_all_matches: false,
             enrichments: { websites: [] },
-            name: profileData.name,
-            role: profileData.role,
-            description: profileData.description,
-            goals: profileData.goals,
-            challenges: profileData.challenges,
-            offers: profileData.offers,
+            name: String(profileData.name || ''),
+            role: String(profileData.role || ''),
+            description: String(profileData.description || ''),
+            goals: safeGoals,
+            challenges: safeChallenges,
+            offers: String(profileData.offers || ''),
           });
 
           const { goalEmbedding, challengeEmbedding } = await generateUserEmbeddings(
-            profileData.goals,
-            profileData.challenges
+            safeGoals,
+            safeChallenges
           );
           await updateUserEmbeddings(user.id, goalEmbedding, challengeEmbedding);
 

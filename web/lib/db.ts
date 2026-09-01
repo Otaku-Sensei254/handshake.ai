@@ -1,9 +1,9 @@
 import postgres from 'postgres';
-import { User, Match, ProfileEnrichments, Organizer, Event, EventPrompt, UserEventResponse } from './types';
+import { User, Match, ProfileEnrichments, Organizer, Event, EventSection, EventPrompt, UserEventResponse } from './types';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: isProd ? 'require' : false, max: 10 });
+const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 10 });
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -346,12 +346,15 @@ export async function getUserEventResponses(eventId: string): Promise<UserEventR
       uer.id,
       uer.user_id,
       uer.event_id,
+      uer.section_id,
       uer.responses,
       uer.created_at,
       u.name as user_name,
-      u.telegram_username as user_username
+      u.telegram_username as user_username,
+      es.name as section_name
     FROM user_event_responses uer
     JOIN users u ON uer.user_id = u.id
+    LEFT JOIN event_sections es ON uer.section_id = es.id
     WHERE uer.event_id = ${eventId}
     ORDER BY uer.created_at DESC
   `;
@@ -359,6 +362,34 @@ export async function getUserEventResponses(eventId: string): Promise<UserEventR
 
 export async function updateEventInsights(eventId: string, insights: string): Promise<void> {
   await sql`UPDATE events SET ai_insights = ${insights} WHERE id = ${eventId}`;
+}
+
+// ─── Event Sections ───────────────────────────────────────────────────────
+
+export async function getEventSections(eventId: string): Promise<EventSection[]> {
+  return sql<EventSection[]>`SELECT * FROM event_sections WHERE event_id = ${eventId} ORDER BY created_at ASC`;
+}
+
+export async function createEventSection(
+  eventId: string,
+  name: string,
+  code: string,
+  description?: string
+): Promise<EventSection> {
+  const rows = await sql<EventSection[]>`
+    INSERT INTO event_sections (event_id, name, code, description)
+    VALUES (${eventId}, ${name}, ${code.toUpperCase()}, ${description ?? null})
+    RETURNING *
+  `;
+  return rows[0];
+}
+
+export async function deleteEventSection(sectionId: string): Promise<void> {
+  await sql`DELETE FROM event_sections WHERE id = ${sectionId}`;
+}
+
+export async function updateEventMatchScope(eventId: string, matchScope: 'event' | 'section'): Promise<void> {
+  await sql`UPDATE events SET match_scope = ${matchScope} WHERE id = ${eventId}`;
 }
 
 

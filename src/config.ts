@@ -36,8 +36,8 @@ export const config = {
   },
   gemini: {
     apiKey: optional('GEMINI_API_KEY', ''),
-    textModel: optional('GEMINI_TEXT_MODEL', 'gemini-2.5-flash'),
-    embeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-2'),
+    textModel: optional('GEMINI_TEXT_MODEL', 'gemini-3.6-flash'),
+    embeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'text-embedding-004'),
     embeddingDimensions: parseInt(optional('GEMINI_EMBEDDING_DIMENSIONS', '1536'), 10),
   },
   db: {

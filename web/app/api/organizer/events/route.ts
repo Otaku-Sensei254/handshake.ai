@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { code, name, organizerName } = await req.json();
+    const { code, name, organizerName, matchScope } = await req.json();
     if (!code || !name || !organizerName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
 
     const event = await createEvent(code, name, organizerName, organizerId);
     return NextResponse.json({ success: true, event });
-  } catch (err: any) {
-    const msg = err.message || "Internal error";
-    if (err.code === '23505') {
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    const msg = error.message || "Internal error";
+    if ((err as { code?: string }).code === '23505') {
       return NextResponse.json({ error: "An event with this code already exists." }, { status: 409 });
     }
     return NextResponse.json({ error: msg }, { status: 500 });

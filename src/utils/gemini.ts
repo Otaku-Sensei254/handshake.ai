@@ -71,13 +71,26 @@ async function postGemini<T>(model: string, method: string, body: unknown, retri
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Gemini API error ${response.status}: ${text}`);
+        if (response.status === 400) {
+          throw new Error(`Gemini API error ${response.status}: ${text}`);
+        }
+        if (response.status !== 429 && response.status < 500) {
+          throw new Error(`Gemini API error ${response.status}: ${text}`);
+        }
+        if (attempt === retries) {
+          throw new Error(`Gemini API error ${response.status}: ${text}`);
+        }
+        console.warn(`[Gemini] ${response.status} error. Retrying in ${delay}ms (Attempt ${attempt}/${retries})...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
       }
 
       return (await response.json()) as T;
-    } catch (err: any) {
-      if (attempt === retries) throw err;
-      console.warn(`[Gemini] Connection or rate limit error: ${err.message}. Retrying in ${delay}ms...`);
+    } catch (err: unknown) {
+      if (attempt === retries || (err instanceof Error && err.message.includes('API error 400'))) throw err;
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[Gemini] Connection or rate limit error: ${error.message}. Retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= 2;
     }
@@ -155,7 +168,8 @@ export async function generateGeminiText(
 function generateFallbackEmbedding(text: string, dimensions = 1536): number[] {
   const vector = new Array(dimensions).fill(0);
   
-  const words = text
+  const safeText = String(text || '');
+  const words = safeText
     .toLowerCase()
     .replace(/[^\w\s]/g, '')
     .split(/\s+/)
@@ -203,7 +217,7 @@ export async function generateGeminiEmbedding(text: string): Promise<number[]> {
         content: {
           parts: [{ text }],
         },
-        output_dimensionality: config.gemini.embeddingDimensions,
+        outputDimensionality: config.gemini.embeddingDimensions,
       }
     );
 

@@ -1,0 +1,132 @@
+Handshake AI — Project Overview
+================================
+
+WHAT IT IS
+----------
+Handshake AI is an AI-powered matchmaking platform for events. It automatically
+introduces attendees to 3–5 people they should meet based on their goals, skills,
+and what they are building. Attendees are connected via Telegram (and WhatsApp in
+the future), removing the guesswork from networking.
+
+The system was originally built for MiniHack Kenya and is designed around the
+event/spaceship model: one organizer creates an event, attendees register, and
+AI drives the introductions.
+
+ARCHITECTURE
+------------
+Two main apps share a single PostgreSQL database (hosted on Neon):
+
+  Bot  (src/)        Node.js Telegram bot using node-telegram-bot-api
+                     Handles onboarding, match notifications, and voice calls.
+                     Entry point: src/index.ts -> src/bot/index.ts
+
+  Web  (web/)        Next.js 16 frontend with React 19 and Tailwind CSS
+                     Registration form, organizer dashboard, live demo page.
+                     Entry point: web/app/page.tsx
+
+  Database           PostgreSQL via the `postgres` library
+                     Tables: users, matches, events, event_prompts,
+                     user_event_responses, organizers
+
+MATCHING PIPELINE
+-----------------
+1. Onboarding — Telegram conversational interview powered by Gemini
+2. Embedding  — Gemini embeddings for goals + challenges stored in pgvector
+3. Candidate Selection — Cosine similarity via pgvector HNSW index
+4. Agent Negotiation — 3-turn Gemini agent-to-agent conversation;
+                       both agents must score the match > 0.72
+5. Introduction — Telegram consent notification -> ElevenLabs voice call
+6. Feedback — 24-hour follow-up with thumbs up/down to refine match weights
+
+WHAT IT CAN DO
+--------------
+- Telegram bot onboarding with conversational AI interviews
+- AI-generated match scores and rationales using Gemini
+- Vector similarity search for candidate selection (pgvector)
+- Multi-turn agent negotiation before introductions
+- ElevenLabs voice calls (with text fallback) for match introductions
+- Organizer authentication and event management dashboard
+- Custom event prompts and attendee response collection
+- AI-generated event insights from attendee responses
+- Blockchain confirmation logging (Avalanche / ConnectionRegistry.sol)
+- Onboarding session persistence for returning users
+- Profile enrichment via GitHub and website scraping
+- PDF resume parsing
+- M-Pesa payments pending integration (Daraja API)
+
+CURRENT STATUS / PROGRESS
+-------------------------
+COMPLETED
+- Telegram bot with full onboarding flow
+- Web registration form and organizer dashboard
+- Organizer auth system (register/login/session tokens)
+- Matching scheduler (2-hour cron cycles)
+- pgvector similarity search and agent negotiation pipeline
+- Blockchain logging via ConnectionRegistry.sol
+- Voice call introductions via ElevenLabs
+- Database migration system with all core tables
+- Neon database integration (migrated from Supabase free tier)
+
+IN PROGRESS / PENDING
+- /pitch landing page for organizer sales outreach
+- M-Pesa payment integration (Daraja API)
+- Event sponsorship model
+- WhatsApp bot integration for attendee flexibility
+- Project naming decision (frontrunner: Synaptic Pulse)
+- Revenue model selection and first paying customer
+
+TECHNICAL NOTES
+---------------
+- Neon database is used instead of Supabase free tier because Neon's pooler
+  supports IPv4 natively, while Supabase's direct connection is IPv6-only.
+- The school WiFi environment blocks outbound port 5432, so development
+  requires either a hotspot or a network that allows PostgreSQL connections.
+- Next.js 16 with Turbopack is used for the web frontend.
+- The project uses raw SQL via the `postgres` library (no ORM).
+
+FUTURE: WHATSAPP BOT
+--------------------
+A WhatsApp bot is planned for increased flexibility. Attendees who prefer
+WhatsApp over Telegram will be able to complete onboarding, receive matches,
+and respond to consent requests through WhatsApp. This will likely use the
+WhatsApp Business API or a provider like Twilio/Meta.
+
+BUSINESS MODEL / COMMERCIAL ASPECT
+----------------------------------
+The project is designed to monetize around live events, starting with the
+Kenyan schools market where MiniHack Kenya provided the initial use case.
+
+PRICING (KES — Kenyan Shillings)
+  Pilot package      KES 25,000 – 35,000 per single event
+  Annual package     KES 300,000     all graduation events for one year
+  Campus license     KES 600,000     unlimited events, full campus access
+
+SPONSORSHIP MODEL (alternative to paid tickets)
+  A brand sponsors an event (KES 150,000 – 300,000)
+  The school/event gets the platform for free
+  Sponsor gets brand exposure and early access to attendee introductions
+
+REVENUE CHANNELS
+  Per-event fees        Schools pay per graduation/hackathon event
+  Annual subscriptions  Campus-wide licenses for universities
+  Sponsored intros      Brands pay to be featured in match introductions
+  On-chain fees         Blockchain confirmation micro-fees (future)
+  HR SaaS              Enterprise internal networking tool (future)
+
+TARGET MARKET
+  Kenyan universities and high schools — starting with tech-focused events
+  Expansion to regional East African tech ecosystem (Hackathons, DevCamps)
+  Corporate HR teams for internal team matching (long-term)
+
+COMPETITIVE POSITIONING
+  Unlike LinkedIn or Blind Date-style random matching, Handshake AI uses
+  multi-agent AI negotiation — both parties must agree the match is valuable
+  before an introduction happens. This produces higher-quality connections
+  and justifies premium pricing over simple networking apps.
+
+KEY METRICS FOR GROWTH
+  Number of events hosted per month
+  Attendee registration rate per event
+  Match acceptance rate (consent given / matches proposed)
+  Net Promoter Score from attendees and organizers
+  Revenue per event and churn rate

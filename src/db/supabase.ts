@@ -1,9 +1,7 @@
 import postgres from 'postgres';
-import { User, Match, ProfileEnrichments, Event, EventPrompt, UserEventResponse } from '../types';
+import { User, Match, ProfileEnrichments, Event, EventSection, EventPrompt, UserEventResponse } from '../types';
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  'postgresql://handshake:handshake_db_pass_2024@104.248.134.75:5432/handshake';
+const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://neondb_owner:npg_vijXQLfD73eK@ep-lucky-frost-axq81tze-pooler.c-4.us-east-2.aws.neon.tech/handshake.ai?sslmode=require&channel_binding=require';
 
 let _sql: ReturnType<typeof postgres> | null = null;
 
@@ -266,13 +264,19 @@ export async function getEventPrompts(eventId: string): Promise<EventPrompt[]> {
 export async function saveUserEventResponses(
   userId: string,
   eventId: string,
-  responses: Array<{ prompt_id: string; prompt_text: string; response_text: string }>
+  responses: Array<{ prompt_id: string; prompt_text: string; response_text: string }>,
+  sectionId?: string
 ): Promise<void> {
   const sql = getDb();
   await sql`
-    INSERT INTO user_event_responses (user_id, event_id, responses)
-    VALUES (${userId}, ${eventId}, ${JSON.stringify(responses)}::jsonb)
-    ON CONFLICT (user_id, event_id) DO UPDATE SET responses = EXCLUDED.responses, created_at = now()
+    INSERT INTO user_event_responses (user_id, event_id, responses, section_id)
+    VALUES (${userId}, ${eventId}, ${JSON.stringify(responses)}::jsonb, ${sectionId ?? null})
+    ON CONFLICT (user_id, event_id) DO UPDATE SET responses = EXCLUDED.responses, section_id = EXCLUDED.section_id, created_at = now()
   `;
+}
+
+export async function getEventSections(eventId: string): Promise<EventSection[]> {
+  const sql = getDb();
+  return sql<EventSection[]>`SELECT * FROM event_sections WHERE event_id = ${eventId} ORDER BY created_at ASC`;
 }
 

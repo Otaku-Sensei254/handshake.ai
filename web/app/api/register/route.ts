@@ -5,7 +5,7 @@ import { updateUserEnrichments } from "@/lib/db";
 import type { ProfileEnrichments } from "@/lib/types";
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: isProd ? 'require' : false, max: 5 });
+const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 5 });
 
 async function fetchGitHubSummary(username: string): Promise<string> {
   try {
