@@ -160,6 +160,7 @@ export async function GET(req: NextRequest) {
         )
         RETURNING id
       `;
+      
       results.push({ name: demo.name, status: "created", id: inserted[0].id as string });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
