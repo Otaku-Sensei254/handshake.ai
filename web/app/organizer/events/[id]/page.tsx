@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import SiteHeader from "@/components/site-header";
 import OrganizerShell, { authHeaders } from "@/components/organizer-shell";
+import OrganizerSidebar from "@/components/organizer-sidebar";
 import { Button } from "@/components/ui/button";
 import type {
   Event,
