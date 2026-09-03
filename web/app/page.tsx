@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Scanner from "@/components/Scanner";
 import OrganizerNavLink from "@/components/organizer-nav-link";
+import ThemeToggle from "@/components/theme-toggle";
 
 export default function Home() {
   return (
@@ -37,17 +38,20 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 min-h-screen flex flex-col">
-        <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-md sticky top-0 z-50">
+        <header className="border-b border-[var(--border)] bg-[var(--header-bg)] backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
             <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
               <span className="w-7 h-7 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/30 flex items-center justify-center text-[var(--success)] text-sm font-semibold group-hover:bg-[var(--success)]/20 transition-colors">H</span>
-              <span className="text-sm font-medium text-white hidden sm:inline">Handshake</span>
+              <span className="text-sm font-medium text-[var(--fg)] hidden sm:inline">Handshake</span>
             </Link>
             <nav className="flex items-center gap-1">
-              <Link href="/register" className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-white bg-[var(--surface-2)]">Register</Link>
-              <Link href="/live" className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-[var(--muted)] hover:text-white hover:bg-[var(--surface)]">Live demo</Link>
-              <OrganizerNavLink className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-[var(--muted)] hover:text-white hover:bg-[var(--surface)]" />
+              <Link href="/register" className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-[var(--fg)] bg-[var(--surface-2)]">Register</Link>
+              <Link href="/live" className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--surface)]">Live demo</Link>
+              <OrganizerNavLink className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--surface)]" />
             </nav>
+            <div className="shrink-0">
+              <ThemeToggle />
+            </div>
           </div>
         </header>
 

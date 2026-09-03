@@ -43,26 +43,35 @@ async function migrate() {
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        telegram_id BIGINT NOT NULL,
+        telegram_id BIGINT,
         telegram_username TEXT,
         phone_number TEXT,
         wallet_address TEXT,
         accept_all_matches BOOLEAN NOT NULL DEFAULT false,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL,
-        description TEXT NOT NULL,
-        goals TEXT NOT NULL,
-        challenges TEXT NOT NULL,
-        offers TEXT NOT NULL,
+        name TEXT,
+        role TEXT,
+        description TEXT,
+        goals TEXT,
+        challenges TEXT,
+        offers TEXT,
         enrichments JSONB DEFAULT '{"websites": []}'::jsonb,
         goal_embedding vector(1536),
         challenge_embedding vector(1536),
+        email TEXT,
+        password_hash TEXT,
+        session_token TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE(telegram_id)
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `;
     console.log('✅ Created users table');
+
+    // 2c. Add auth columns if table already existed without them
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT`;
+    await sql`ALTER TABLE users ALTER COLUMN telegram_id DROP NOT NULL`;
+    console.log('✅ Added auth columns to users table');
 
     // 2c. Create onboarding_sessions table
     await sql`

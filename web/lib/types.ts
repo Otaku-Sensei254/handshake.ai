@@ -161,6 +161,7 @@ export interface Event {
   match_scope: 'event' | 'section';
   created_at: string;
   ai_insights?: string;
+  sections?: EventSection[];
 }
 
 export interface EventSection {

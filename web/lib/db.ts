@@ -1,26 +1,31 @@
-import postgres from 'postgres';
+import { neon } from '@neondatabase/serverless';
 import { User, Match, ProfileEnrichments, Organizer, Event, EventSection, EventPrompt, UserEventResponse } from './types';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 10 });
+const sql = neon(process.env.DATABASE_URL!);
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export async function getUserByTelegramId(telegramId: number): Promise<User | null> {
-  const rows = await sql<User[]>`SELECT * FROM users WHERE telegram_id = ${telegramId} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM users WHERE telegram_id = ${telegramId} LIMIT 1`) as unknown as User[];
   return rows[0] ?? null;
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const rows = await sql<User[]>`SELECT * FROM users WHERE id = ${id} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM users WHERE id = ${id} LIMIT 1`) as unknown as User[];
+  return rows[0] ?? null;
+}
+
+export async function getUserByTelegramUsername(username: string): Promise<User | null> {
+  const rows = (await sql`SELECT * FROM users WHERE telegram_username = ${username} LIMIT 1`) as unknown as User[];
   return rows[0] ?? null;
 }
 
 export async function upsertUser(
   data: Omit<User, 'id' | 'created_at' | 'updated_at'>
 ): Promise<User> {
-  const rows = await sql<User[]>`
+  const rows = (await sql`
     INSERT INTO users (
       telegram_id, telegram_username, phone_number, wallet_address, accept_all_matches,
       name, role, description, goals, challenges, offers, enrichments,
@@ -28,9 +33,9 @@ export async function upsertUser(
     ) VALUES (
       ${data.telegram_id}, ${data.telegram_username ?? null}, ${data.phone_number ?? null},
       ${data.wallet_address ?? null}, ${data.accept_all_matches ?? false},
-      ${data.name}, ${data.role}, ${data.description}, ${data.goals},
-      ${data.challenges}, ${data.offers},
-      ${sql.json((data.enrichments ?? { websites: [] }) as unknown as postgres.JSONValue)},
+      ${data.name}, ${data.role}, ${data.description},
+      ${data.goals}, ${data.challenges}, ${data.offers},
+      ${JSON.stringify(data.enrichments ?? { websites: [] })}::jsonb,
       ${data.goal_embedding ? sql`${JSON.stringify(data.goal_embedding)}::vector` : null},
       ${data.challenge_embedding ? sql`${JSON.stringify(data.challenge_embedding)}::vector` : null}
     )
@@ -50,15 +55,46 @@ export async function upsertUser(
       challenge_embedding= EXCLUDED.challenge_embedding,
       updated_at         = now()
     RETURNING *
-  `;
+  `) as unknown as User[];
+  if (!rows[0]) throw new Error('Failed to upsert user');
   return rows[0];
+}
+
+export async function updateUser(id: string, data: {
+  name?: string;
+  role?: string;
+  description?: string;
+  goals?: string;
+  challenges?: string;
+  offers?: string;
+  phone_number?: string | null;
+  wallet_address?: string | null;
+  goal_embedding?: number[] | null;
+  challenge_embedding?: number[] | null;
+}): Promise<void> {
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+  if (data.name !== undefined) { sets.push(`name = $${i}`); values.push(data.name); i++; }
+  if (data.role !== undefined) { sets.push(`role = $${i}`); values.push(data.role); i++; }
+  if (data.description !== undefined) { sets.push(`description = $${i}`); values.push(data.description); i++; }
+  if (data.goals !== undefined) { sets.push(`goals = $${i}`); values.push(data.goals); i++; }
+  if (data.challenges !== undefined) { sets.push(`challenges = $${i}`); values.push(data.challenges); i++; }
+  if (data.offers !== undefined) { sets.push(`offers = $${i}`); values.push(data.offers); i++; }
+  if (data.phone_number !== undefined) { sets.push(`phone_number = $${i}`); values.push(data.phone_number); i++; }
+  if (data.wallet_address !== undefined) { sets.push(`wallet_address = $${i}`); values.push(data.wallet_address); i++; }
+  if (data.goal_embedding !== undefined) { sets.push(`goal_embedding = $${i}::vector`); values.push(JSON.stringify(data.goal_embedding)); i++; }
+  if (data.challenge_embedding !== undefined) { sets.push(`challenge_embedding = $${i}::vector`); values.push(JSON.stringify(data.challenge_embedding)); i++; }
+  sets.push(`updated_at = now()`);
+  values.push(id);
+  await (sql as any).unsafe(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i}`, values as string[]);
 }
 
 export async function updateUserEnrichments(
   userId: string,
   enrichments: ProfileEnrichments
 ): Promise<void> {
-  await sql`UPDATE users SET enrichments = ${sql.json(enrichments as unknown as postgres.JSONValue)}, updated_at = now() WHERE id = ${userId}`;
+  await sql`UPDATE users SET enrichments = ${JSON.stringify(enrichments)}::jsonb, updated_at = now() WHERE id = ${userId}`;
 }
 
 export async function updateUserEmbeddings(
@@ -80,10 +116,10 @@ export async function setUserAcceptAll(userId: string): Promise<void> {
 }
 
 export async function getAllUsersWithEmbeddings(): Promise<User[]> {
-  return sql<User[]>`
+  return (await sql`
     SELECT * FROM users
     WHERE goal_embedding IS NOT NULL AND challenge_embedding IS NOT NULL
-  `;
+  `) as unknown as User[];
 }
 
 export async function findCandidates(
@@ -93,7 +129,7 @@ export async function findCandidates(
   count: number
 ): Promise<Array<{ user_id: string; similarity: number }>> {
   const embStr = JSON.stringify(queryEmbedding);
-  return sql<Array<{ user_id: string; similarity: number }>>`
+  return (await sql`
     SELECT id AS user_id,
            1 - (challenge_embedding <=> ${embStr}::vector) AS similarity
     FROM users
@@ -102,7 +138,7 @@ export async function findCandidates(
       AND 1 - (challenge_embedding <=> ${embStr}::vector) > ${threshold}
     ORDER BY challenge_embedding <=> ${embStr}::vector
     LIMIT ${count}
-  `;
+  `) as unknown as Array<{ user_id: string; similarity: number }>;
 }
 
 export async function pairAlreadyProcessed(
@@ -123,7 +159,7 @@ export async function pairAlreadyProcessed(
 export async function createMatch(
   data: Omit<Match, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Match> {
-  const rows = await sql<Match[]>`
+  const rows = (await sql`
     INSERT INTO matches (
       user_a_id, user_b_id, similarity_score, agent_a_score, agent_b_score,
       transcript, rationale, conversation_starter,
@@ -132,10 +168,10 @@ export async function createMatch(
     ) VALUES (
       ${data.user_a_id}, ${data.user_b_id},
       ${data.similarity_score}, ${data.agent_a_score}, ${data.agent_b_score},
-      ${sql.json((data.transcript ?? []) as unknown as postgres.JSONValue)},
+      ${JSON.stringify(data.transcript ?? [])}::jsonb,
       ${data.rationale}, ${data.conversation_starter},
-      ${sql.json((data.collaboration_opportunities ?? []) as unknown as postgres.JSONValue)},
-      ${sql.json((data.shared_tech_stack ?? []) as unknown as postgres.JSONValue)},
+      ${JSON.stringify(data.collaboration_opportunities ?? [])}::jsonb,
+      ${JSON.stringify(data.shared_tech_stack ?? [])}::jsonb,
       ${data.status}, ${data.user_a_consent}, ${data.user_b_consent}
     )
     ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET
@@ -152,7 +188,7 @@ export async function createMatch(
       user_b_consent = EXCLUDED.user_b_consent,
       updated_at = now()
     RETURNING *
-  `;
+  `) as unknown as Match[];
   return rows[0];
 }
 
@@ -186,15 +222,11 @@ export async function updateMatch(id: string, data: Partial<Match>): Promise<voi
   if (updates.length === 0) return;
   updates.push(`updated_at = now()`);
   values.push(id);
-
-  await sql.unsafe(
-    `UPDATE matches SET ${updates.join(', ')} WHERE id = $${i}`,
-    values as string[]
-  );
+  await (sql as any).unsafe(`UPDATE matches SET ${updates.join(', ')} WHERE id = $${i}`, values as string[]);
 }
 
 export async function getMatchById(id: string): Promise<Match | null> {
-  const rows = await sql<Match[]>`SELECT * FROM matches WHERE id = ${id} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM matches WHERE id = ${id} LIMIT 1`) as unknown as Match[];
   return rows[0] ?? null;
 }
 
@@ -210,9 +242,9 @@ export interface OnboardingSessionRow {
 export async function getOnboardingSession(
   telegramId: number
 ): Promise<OnboardingSessionRow['session'] | null> {
-  const rows = await sql<Array<{ session: OnboardingSessionRow['session'] }>>`
+  const rows = (await sql`
     SELECT session FROM onboarding_sessions WHERE telegram_id = ${telegramId} LIMIT 1
-  `;
+  `) as unknown as Array<{ session: OnboardingSessionRow['session'] }>;
   return rows[0]?.session ?? null;
 }
 
@@ -222,7 +254,7 @@ export async function saveOnboardingSession(
 ): Promise<void> {
   await sql`
     INSERT INTO onboarding_sessions (telegram_id, session)
-    VALUES (${telegramId}, ${sql.json(session)})
+    VALUES (${telegramId}, ${JSON.stringify(session)}::jsonb)
     ON CONFLICT (telegram_id) DO UPDATE SET session = EXCLUDED.session, updated_at = now()
   `;
 }
@@ -256,11 +288,11 @@ export async function createOrganizer(
 ): Promise<Organizer> {
   const passwordHash = hashPassword(password);
   const token = generateToken();
-  const rows = await sql<Organizer[]>`
+  const rows = (await sql`
     INSERT INTO organizers (name, email, password_hash, session_token)
     VALUES (${name}, ${email.toLowerCase()}, ${passwordHash}, ${token})
     RETURNING id, name, email, created_at
-  `;
+  `) as unknown as Organizer[];
   return rows[0];
 }
 
@@ -268,9 +300,9 @@ export async function loginOrganizer(
   email: string,
   password: string
 ): Promise<{ organizer: Organizer; token: string } | null> {
-  const rows = await sql<Array<Organizer & { password_hash: string }>>`
+  const rows = (await sql`
     SELECT * FROM organizers WHERE email = ${email.toLowerCase()} LIMIT 1
-  `;
+  `) as unknown as Array<Organizer & { password_hash: string }>;
   if (rows.length === 0) return null;
   const row = rows[0];
   if (!verifyPassword(password, row.password_hash)) return null;
@@ -281,9 +313,7 @@ export async function loginOrganizer(
 }
 
 export async function getOrganizerByToken(token: string): Promise<Organizer | null> {
-  const rows = await sql<Organizer[]>`
-    SELECT id, name, email, created_at FROM organizers WHERE session_token = ${token} LIMIT 1
-  `;
+  const rows = (await sql`SELECT id, name, email, created_at FROM organizers WHERE session_token = ${token} LIMIT 1`) as unknown as Organizer[];
   return rows[0] ?? null;
 }
 
@@ -298,50 +328,60 @@ export async function claimEventsForOrganizer(name: string, organizerId: string)
 
 export async function getEvents(organizerId?: string): Promise<Event[]> {
   if (organizerId) {
-    return sql<Event[]>`SELECT * FROM events WHERE organizer_id = ${organizerId} ORDER BY created_at DESC`;
+    return (await sql`SELECT * FROM events WHERE organizer_id = ${organizerId} ORDER BY created_at DESC`) as unknown as Event[];
   }
-  return sql<Event[]>`SELECT * FROM events ORDER BY created_at DESC`;
+  return (await sql`SELECT * FROM events ORDER BY created_at DESC`) as unknown as Event[];
 }
 
 export async function createEvent(
   code: string,
   name: string,
   organizerName: string,
-  organizerId?: string
+  organizerId?: string,
+  matchScope: 'event' | 'section' = 'event'
 ): Promise<Event> {
-  const rows = await sql<Event[]>`
-    INSERT INTO events (code, name, organizer_name, organizer_id)
-    VALUES (${code.toUpperCase()}, ${name}, ${organizerName}, ${organizerId ?? null})
+  const rows = (await sql`
+    INSERT INTO events (code, name, organizer_name, organizer_id, match_scope)
+    VALUES (${code.toUpperCase()}, ${name}, ${organizerName}, ${organizerId ?? null}, ${matchScope})
     RETURNING *
-  `;
+  `) as unknown as Event[];
   return rows[0];
 }
 
 export async function getEventByCode(code: string): Promise<Event | null> {
-  const rows = await sql<Event[]>`SELECT * FROM events WHERE UPPER(code) = ${code.toUpperCase()} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM events WHERE UPPER(code) = ${code.toUpperCase()} LIMIT 1`) as unknown as Event[];
   return rows[0] ?? null;
 }
 
 export async function getEventPrompts(eventId: string): Promise<EventPrompt[]> {
-  return sql<EventPrompt[]>`SELECT * FROM event_prompts WHERE event_id = ${eventId} ORDER BY order_index ASC`;
+  return (await sql`SELECT * FROM event_prompts WHERE event_id = ${eventId} ORDER BY order_index ASC`) as unknown as EventPrompt[];
 }
 
 export async function updateEventPrompts(eventId: string, prompts: string[]): Promise<void> {
-  await sql.begin(async (tx) => {
-    await tx`DELETE FROM event_prompts WHERE event_id = ${eventId}`;
-    if (prompts.length > 0) {
-      const rows = prompts.map((promptText, index) => ({
-        event_id: eventId,
-        prompt_text: promptText,
-        order_index: index,
-      }));
-      await tx`INSERT INTO event_prompts ${tx(rows, 'event_id', 'prompt_text', 'order_index')}`;
-    }
-  });
+  await sql`DELETE FROM event_prompts WHERE event_id = ${eventId}`;
+  for (let i = 0; i < prompts.length; i++) {
+    await sql`
+      INSERT INTO event_prompts (event_id, prompt_text, order_index)
+      VALUES (${eventId}, ${prompts[i]}, ${i})
+    `;
+  }
+}
+
+export async function saveUserEventResponses(
+  userId: string,
+  eventId: string,
+  responses: Array<{ prompt_id: string; prompt_text: string; response_text: string }>,
+  sectionId?: string
+): Promise<void> {
+  await sql`
+    INSERT INTO user_event_responses (user_id, event_id, responses, section_id)
+    VALUES (${userId}, ${eventId}, ${JSON.stringify(responses)}::jsonb, ${sectionId ?? null})
+    ON CONFLICT (user_id, event_id) DO UPDATE SET responses = EXCLUDED.responses, section_id = EXCLUDED.section_id, created_at = now()
+  `;
 }
 
 export async function getUserEventResponses(eventId: string): Promise<UserEventResponse[]> {
-  return sql<UserEventResponse[]>`
+  return (await sql`
     SELECT 
       uer.id,
       uer.user_id,
@@ -357,7 +397,7 @@ export async function getUserEventResponses(eventId: string): Promise<UserEventR
     LEFT JOIN event_sections es ON uer.section_id = es.id
     WHERE uer.event_id = ${eventId}
     ORDER BY uer.created_at DESC
-  `;
+  `) as unknown as UserEventResponse[];
 }
 
 export async function updateEventInsights(eventId: string, insights: string): Promise<void> {
@@ -367,7 +407,7 @@ export async function updateEventInsights(eventId: string, insights: string): Pr
 // ─── Event Sections ───────────────────────────────────────────────────────
 
 export async function getEventSections(eventId: string): Promise<EventSection[]> {
-  return sql<EventSection[]>`SELECT * FROM event_sections WHERE event_id = ${eventId} ORDER BY created_at ASC`;
+  return (await sql`SELECT * FROM event_sections WHERE event_id = ${eventId} ORDER BY created_at ASC`) as unknown as EventSection[];
 }
 
 export async function createEventSection(
@@ -376,11 +416,11 @@ export async function createEventSection(
   code: string,
   description?: string
 ): Promise<EventSection> {
-  const rows = await sql<EventSection[]>`
+  const rows = (await sql`
     INSERT INTO event_sections (event_id, name, code, description)
     VALUES (${eventId}, ${name}, ${code.toUpperCase()}, ${description ?? null})
     RETURNING *
-  `;
+  `) as unknown as EventSection[];
   return rows[0];
 }
 
@@ -391,5 +431,3 @@ export async function deleteEventSection(sectionId: string): Promise<void> {
 export async function updateEventMatchScope(eventId: string, matchScope: 'event' | 'section'): Promise<void> {
   await sql`UPDATE events SET match_scope = ${matchScope} WHERE id = ${eventId}`;
 }
-
-

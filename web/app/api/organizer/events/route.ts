@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEvents, createEvent, getOrganizerByToken } from "@/lib/db";
+import { getEvents, createEvent, getOrganizerByToken, getEventSections } from "@/lib/db";
 
 function getToken(req: NextRequest): string | null {
   const auth = req.headers.get("authorization");
@@ -15,7 +15,14 @@ export async function GET(req: NextRequest) {
       if (organizer) organizerId = organizer.id;
     }
     const events = await getEvents(organizerId);
-    return NextResponse.json({ events });
+    // Attach sections to each event so the dashboard can render them
+    const eventsWithSections = await Promise.all(
+      events.map(async (e) => ({
+        ...e,
+        sections: e.match_scope === "section" ? await getEventSections(e.id) : [],
+      }))
+    );
+    return NextResponse.json({ events: eventsWithSections });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -36,7 +43,7 @@ export async function POST(req: NextRequest) {
       if (organizer) organizerId = organizer.id;
     }
 
-    const event = await createEvent(code, name, organizerName, organizerId);
+    const event = await createEvent(code, name, organizerName, organizerId, matchScope === 'section' ? 'section' : 'event');
     return NextResponse.json({ success: true, event });
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import postgres from "postgres";
+import { neon } from "@neondatabase/serverless";
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 5 });
+const sql = neon(process.env.DATABASE_URL!);
 
 export async function GET() {
   try {

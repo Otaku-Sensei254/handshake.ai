@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateEventInsights } from "@/lib/db";
 import { generateGeminiText } from "@/lib/gemini";
-import postgres from "postgres";
+import { neon } from "@neondatabase/serverless";
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 5 });
+const sql = neon(process.env.DATABASE_URL!);
 
 export async function POST(
   req: NextRequest,

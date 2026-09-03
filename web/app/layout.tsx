@@ -14,6 +14,23 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Inline script that runs before React hydrates. Reads the persisted
+ * theme from localStorage (or system preference) and sets data-theme
+ * on <html> to avoid a flash of the wrong palette.
+ */
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('handshake-theme');
+    var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -21,13 +38,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${GeistSans.variable} ${GeistMono.variable} h-full`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
-        className="min-h-full bg-[#0a0a0a] text-[#ededed] antialiased"
+        className="min-h-full antialiased"
+        style={{ background: "var(--body-bg)", color: "var(--body-fg)" }}
         suppressHydrationWarning
       >
         <ThirdwebProvider>
-
-        {children}
+          {children}
         </ThirdwebProvider>
       </body>
     </html>

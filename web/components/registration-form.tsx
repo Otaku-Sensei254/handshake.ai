@@ -1,19 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useActiveAccount } from "thirdweb/react";
-import WalletConnect from "@/components/wallet-connect";
 import { Button } from "@/components/ui/button";
 import type { PrefillResult } from "@/app/api/prefill/route";
 
 const ROLES = [
-  "Founder / Co-founder",
-  "Software Developer",
-  "Designer / Product",
-  "Investor / VC",
+  "Student",
+  "Researcher",
+  "Entrepreneur",
+  "Professional",
+  "Designer",
+  "Developer",
   "Mentor / Advisor",
-  "Business / Operations",
-  "Student / Researcher",
+  "Investor",
   "Other",
 ];
 
@@ -28,7 +27,6 @@ interface FormData {
   github_username: string;
   website_url: string;
   phone_number: string;
-  wallet_address: string;
   resume: File | null;
 }
 
@@ -52,19 +50,11 @@ export default function RegistrationForm() {
     github_username: "",
     website_url: "",
     phone_number: "",
-    wallet_address: "",
     resume: null,
   });
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const account = useActiveAccount();
-
-  useEffect(() => {
-    if (account?.address) {
-      setForm((f) => ({ ...f, wallet_address: account.address }));
-    }
-  }, [account?.address]);
 
   async function handlePrefill() {
     if (!prefillInput.trim()) return;
@@ -136,26 +126,27 @@ export default function RegistrationForm() {
         </div>
         <div>
           <h2 className="text-xl font-semibold text-[#4ade80] mb-2">
-            You&apos;re in the room.
+            You&apos;re registered.
           </h2>
           <p className="text-[#a1a1aa] text-sm max-w-sm">
-            Your agent is active. Message{" "}
+            We&apos;ll match you with the right people at this event. Make sure to
+            message{" "}
             <a
-              href="https://t.me/HandshakeAIBot"
+              href="https://t.me/kuonabot"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white underline underline-offset-2"
             >
-              @HandshakeAIBot
+              @HandshakeAI
             </a>{" "}
-            on Telegram to receive match notifications and voice introductions.
+            on Telegram to receive your introductions.
           </p>
         </div>
         <div className="mt-2 p-4 rounded-xl border border-[#27272a] bg-[#111111] text-left text-sm text-[#a1a1aa] max-w-sm w-full">
           <p className="text-white font-medium mb-1">What happens next</p>
           <ul className="space-y-1.5 list-none">
-            <li>→ Your agent runs every 2 hours</li>
-            <li>→ When it finds a match, you get a Telegram message</li>
+            <li>→ We analyze your profile and event responses</li>
+            <li>→ When we find a strong match, you get a Telegram message</li>
             <li>→ Confirm and you&apos;ll receive a voice call briefing</li>
           </ul>
         </div>
@@ -265,18 +256,18 @@ export default function RegistrationForm() {
 
       <Divider />
 
-      {/* Section 2: Your work */}
+      {/* Section 2: Your background */}
       <section className="space-y-4">
-        <SectionLabel number="02" title="Your work" />
+        <SectionLabel number="02" title="Your background" />
 
         <Field
-          label="What are you building or working on?"
+          label="Tell us about yourself"
           required
-          hint="2–3 sentences. Be specific."
+          hint="What do you study or work on?"
         >
           <textarea
             className="input min-h-[88px]"
-            placeholder="I'm building an offline-first inventory system for small retailers in Nairobi. We sync conflict resolution across devices without internet..."
+            placeholder="I'm a final-year CS student at Kenyatta University, building a mobile app for campus event discovery..."
             value={form.description}
             onChange={set("description")}
             required
@@ -285,13 +276,13 @@ export default function RegistrationForm() {
         </Field>
 
         <Field
-          label="Top goals at MiniHack"
+          label="What do you want to get out of this event?"
           required
-          hint="What do you want to walk away with?"
+          hint="Be specific — it helps us find the right people."
         >
           <textarea
             className="input min-h-[72px]"
-            placeholder="Find a technical co-founder with mobile experience. Get feedback on our pricing model from someone who's sold to SMBs before."
+            placeholder="Find a teammate for my capstone project. Learn about AI/ML opportunities in Kenya. Meet recruiters from fintech companies."
             value={form.goals}
             onChange={set("goals")}
             required
@@ -300,13 +291,13 @@ export default function RegistrationForm() {
         </Field>
 
         <Field
-          label="Biggest current challenge"
+          label="What's your biggest challenge right now?"
           required
-          hint="This is what your agent leads with when negotiating introductions."
+          hint="This is what people will lead with when introducing you."
         >
           <textarea
             className="input min-h-[72px]"
-            placeholder="We're stuck on sync conflict resolution — specifically how to handle concurrent writes from multiple devices when they reconnect."
+            placeholder="I have a prototype but no co-founder. I'm struggling to find internships in AI. I need feedback on my startup pitch."
             value={form.challenges}
             onChange={set("challenges")}
             required
@@ -317,18 +308,18 @@ export default function RegistrationForm() {
 
       <Divider />
 
-      {/* Section 3: What you offer */}
+      {/* Section 3: What you bring */}
       <section className="space-y-4">
         <SectionLabel number="03" title="What you bring" />
 
         <Field
           label="What can you offer others?"
           required
-          hint="Skills, knowledge, network, capital, domain expertise."
+          hint="Skills, connections, experience, or domain knowledge."
         >
           <textarea
             className="input min-h-[72px]"
-            placeholder="5 years building mobile apps in Kenya. Strong network in the Nairobi retail sector. I can intro people to 3 angel investors I know personally."
+            placeholder="I can teach React Native. I have a network at Safaricom. I'm good at pitch decks and financial modeling."
             value={form.offers}
             onChange={set("offers")}
             required
@@ -336,7 +327,7 @@ export default function RegistrationForm() {
           />
         </Field>
 
-        <Field label="Phone number" hint="Optional — for ElevenLabs voice introductions">
+        <Field label="Phone number" hint="Optional — for event updates">
           <input
             className="input"
             placeholder="+254712345678"
@@ -344,18 +335,6 @@ export default function RegistrationForm() {
             onChange={set("phone_number")}
             type="tel"
           />
-        </Field>
-
-        <Field label="Avalanche wallet" hint="Optional — connect or paste manually">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              className="input flex-1"
-              placeholder="0x…"
-              value={form.wallet_address}
-              onChange={set("wallet_address")}
-            />
-            <WalletConnect />
-          </div>
         </Field>
       </section>
 
@@ -444,12 +423,11 @@ export default function RegistrationForm() {
       )}
 
       <Button type="submit" fullWidth disabled={status === "loading"} className="py-3">
-        {status === "loading" ? "Activating your agent…" : "Activate my agent →"}
+        {status === "loading" ? "Registering…" : "Register →"}
       </Button>
 
       <p className="text-center text-xs text-[#52525b]">
-        Your agent runs every 2 hours. You&apos;ll only be contacted when there&apos;s a
-        high-confidence match.
+        We&apos;ll only contact you when there&apos;s a match that fits your goals.
       </p>
     </form>
   );

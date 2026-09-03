@@ -1,12 +1,12 @@
-import postgres from 'postgres';
+import { neon } from '@neondatabase/serverless';
 import { User, Match, ProfileEnrichments, Event, EventSection, EventPrompt, UserEventResponse } from '../types';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://neondb_owner:npg_vijXQLfD73eK@ep-lucky-frost-axq81tze-pooler.c-4.us-east-2.aws.neon.tech/handshake.ai?sslmode=require&channel_binding=require';
 
-let _sql: ReturnType<typeof postgres> | null = null;
+let _sql: ReturnType<typeof neon> | null = null;
 
-export function getDb(): ReturnType<typeof postgres> {
-  if (!_sql) _sql = postgres(DATABASE_URL, { max: 10 });
+export function getDb(): ReturnType<typeof neon> {
+  if (!_sql) _sql = neon(DATABASE_URL);
   return _sql;
 }
 

@@ -127,17 +127,17 @@ async function handleCommand(
 
     // Check if a web-registered user has matching telegram_username
     if (username) {
-      const { default: postgres } = await import('postgres');
-      const db = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 2 });
+      const { neon } = await import('@neondatabase/serverless');
+      const sql = neon(process.env.DATABASE_URL!);
       try {
-        const rows = await db`
+        const rows = await sql`
           SELECT * FROM users
           WHERE telegram_username = ${username} AND telegram_id < 0
           LIMIT 1
         `;
         const webUser = rows[0];
         if (webUser) {
-          await db`UPDATE users SET telegram_id = ${userId}, updated_at = now() WHERE id = ${webUser.id}`;
+          await sql`UPDATE users SET telegram_id = ${userId}, updated_at = now() WHERE id = ${webUser.id}`;
           await sendMessage(
             chatId,
             `Welcome back, ${webUser.name}! Your web registration has been linked to this Telegram account. Your agent is active.`,
@@ -146,7 +146,7 @@ async function handleCommand(
           return;
         }
       } finally {
-        await db.end();
+        // neon() is ephemeral — no connection to close
       }
     }
 
@@ -259,13 +259,9 @@ ${enrichmentStatus}
       await sendMessage(chatId, 'Please complete onboarding first by sending /start.');
       return;
     }
-    const { default: postgres } = await import('postgres');
-    const db = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 2 });
-    try {
-      await db`UPDATE users SET phone_number = ${phone}, updated_at = now() WHERE id = ${user.id}`;
-    } finally {
-      await db.end();
-    }
+    const { neon } = await import('@neondatabase/serverless');
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql`UPDATE users SET phone_number = ${phone}, updated_at = now() WHERE id = ${user.id}`;
     await sendMessage(chatId, `✅ Phone number saved. You'll receive voice introductions when matches are confirmed.`);
     return;
   }

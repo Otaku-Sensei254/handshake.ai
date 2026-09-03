@@ -9,6 +9,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@supabase/supabase-js": "^2.43.4",
     "node-cron": "^3.0.3",
     "node-telegram-bot-api": "^0.64.0",

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
+import { neon } from "@neondatabase/serverless";
 import { generateGeminiEmbedding, generateGeminiText } from "@/lib/gemini";
 import { updateUserEnrichments } from "@/lib/db";
 import type { ProfileEnrichments } from "@/lib/types";
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 5 });
+const sql = neon(process.env.DATABASE_URL!);
 
 async function fetchGitHubSummary(username: string): Promise<string> {
   try {
@@ -82,9 +82,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if already registered by telegram username
-    const existingRows = await sql<Array<{ id: string; name: string }>>`
+    const existingRows = (await sql`
       SELECT id, name FROM users WHERE telegram_username = ${telegram_username} LIMIT 1
-    `;
+    `) as unknown as Array<{ id: string; name: string }>;
     if (existingRows.length > 0) {
       return NextResponse.json(
         { error: `@${telegram_username} is already registered as ${existingRows[0].name}` },
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     // The Telegram bot will update this when the user messages it
     const placeholderTelegramId = -(Date.now() % 2147483647);
 
-    const inserted = await sql<Array<{ id: string }>>`
+    const inserted = await sql`
       INSERT INTO users (
         telegram_id, telegram_username, phone_number, wallet_address,
         name, role, description, goals, challenges, offers,
@@ -143,8 +143,7 @@ export async function POST(req: NextRequest) {
       )
       RETURNING id
     `;
-
-    const userId = inserted[0]?.id;
+    const userId = (inserted as unknown as Array<{ id: string }>)[0]?.id;
     if (!userId) {
       return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
     }

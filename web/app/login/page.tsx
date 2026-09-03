@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 
-export default function RegisterPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,15 +18,15 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Registration failed");
+        setError(data.error || "Login failed");
         setLoading(false);
         return;
       }
@@ -49,36 +48,22 @@ export default function RegisterPage() {
           <div className="max-w-sm mx-auto">
             <div className="mb-8 text-center">
               <h1 className="text-2xl font-semibold tracking-tight text-white leading-[1.15]">
-                Create an account
+                Welcome back
               </h1>
               <p className="text-[var(--muted)] text-sm mt-2">
-                Get started with Handshake AI.
+                Log in to your account.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="card p-6 space-y-5">
               <div className="space-y-1.5">
-                <label className="block text-sm text-[#a1a1aa]">Username</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="aminaodhiambo"
-                  required
-                  minLength={3}
-                  maxLength={30}
-                />
-              </div>
-
-              <div className="space-y-1.5">
                 <label className="block text-sm text-[#a1a1aa]">Email</label>
                 <input
                   className="input"
                   type="email"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
                   required
                 />
               </div>
@@ -88,11 +73,10 @@ export default function RegisterPage() {
                 <input
                   className="input"
                   type="password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
                   required
-                  minLength={6}
                 />
               </div>
 
@@ -107,13 +91,13 @@ export default function RegisterPage() {
                 disabled={loading}
                 className="w-full py-3 px-4 rounded-xl text-sm font-medium transition-colors disabled:bg-[#27272a] disabled:text-[#52525b] disabled:cursor-not-allowed bg-white text-black hover:bg-[#e4e4e7]"
               >
-                {loading ? "Creating account…" : "Create account →"}
+                {loading ? "Logging in…" : "Log in →"}
               </button>
 
               <p className="text-center text-xs text-[#52525b]">
-                Already have an account?{" "}
-                <Link href="/login" className="text-white underline underline-offset-2">
-                  Log in
+                Don&apos;t have an account?{" "}
+                <Link href="/register" className="text-white underline underline-offset-2">
+                  Register
                 </Link>
               </p>
             </form>
