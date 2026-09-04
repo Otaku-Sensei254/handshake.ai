@@ -28,7 +28,7 @@ export async function upsertUser(
   data: Omit<User, 'id' | 'created_at' | 'updated_at'>
 ): Promise<User> {
   const sql = getDb();
-  const rows = await sql<User[]>`
+  const rows = (await sql`
     INSERT INTO users (
       telegram_id, telegram_username, phone_number, wallet_address, accept_all_matches,
       name, role, description, goals, challenges, offers, enrichments
@@ -53,28 +53,28 @@ export async function upsertUser(
       enrichments        = EXCLUDED.enrichments,
       updated_at         = now()
     RETURNING *
-  `;
+  `) as unknown as User[];
   if (!rows[0]) throw new Error('Failed to upsert user');
   return rows[0];
 }
 
 export async function getUserByTelegramId(telegramId: number): Promise<User | null> {
   const sql = getDb();
-  const rows = await sql<User[]>`SELECT * FROM users WHERE telegram_id = ${telegramId} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM users WHERE telegram_id = ${telegramId} LIMIT 1`) as unknown as User[];
   return rows[0] ?? null;
 }
 
 export async function getUserById(id: string): Promise<User | null> {
   const sql = getDb();
-  const rows = await sql<User[]>`SELECT * FROM users WHERE id = ${id} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM users WHERE id = ${id} LIMIT 1`) as unknown as User[];
   return rows[0] ?? null;
 }
 
 export async function getAllUsersWithEmbeddings(): Promise<User[]> {
   const sql = getDb();
-  return sql<User[]>`
+  return (await sql`
     SELECT * FROM users WHERE goal_embedding IS NOT NULL AND challenge_embedding IS NOT NULL
-  `;
+  `) as unknown as User[];
 }
 
 export async function findCandidates(
@@ -85,7 +85,7 @@ export async function findCandidates(
 ): Promise<Array<{ user_id: string; similarity: number }>> {
   const sql = getDb();
   const embStr = Array.isArray(queryEmbedding) ? JSON.stringify(queryEmbedding) : queryEmbedding;
-  return sql<Array<{ user_id: string; similarity: number }>>`
+  return (await sql`
     SELECT id AS user_id,
            1 - (challenge_embedding <=> ${embStr}::vector) AS similarity
     FROM users
@@ -94,17 +94,17 @@ export async function findCandidates(
       AND 1 - (challenge_embedding <=> ${embStr}::vector) > ${threshold}
     ORDER BY challenge_embedding <=> ${embStr}::vector
     LIMIT ${count}
-  `;
+  `) as unknown as Array<{ user_id: string; similarity: number }>;
 }
 
 export async function pairAlreadyProcessed(userAId: string, userBId: string): Promise<boolean> {
   const sql = getDb();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT id FROM matches
     WHERE (user_a_id = ${userAId} AND user_b_id = ${userBId})
        OR (user_a_id = ${userBId} AND user_b_id = ${userAId})
     LIMIT 1
-  `;
+  `) as unknown as Array<{ id: string }>;
   return rows.length > 0;
 }
 
@@ -114,7 +114,7 @@ export async function createMatch(
   data: Omit<Match, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Match> {
   const sql = getDb();
-  const rows = await sql<Match[]>`
+  const rows = (await sql`
     INSERT INTO matches (
       user_a_id, user_b_id, similarity_score, agent_a_score, agent_b_score,
       transcript, rationale, conversation_starter,
@@ -143,7 +143,7 @@ export async function createMatch(
       user_b_consent = EXCLUDED.user_b_consent,
       updated_at = now()
     RETURNING *
-  `;
+  `) as unknown as Match[];
   if (!rows[0]) throw new Error('Failed to create match');
   return rows[0];
 }
@@ -178,12 +178,12 @@ export async function updateMatch(id: string, data: Partial<Match>): Promise<voi
   if (updates.length === 0) return;
   updates.push('updated_at = now()');
   values.push(id);
-  await sql.unsafe(`UPDATE matches SET ${updates.join(', ')} WHERE id = $${i}`, values as string[]);
+  await (sql as any).unsafe(`UPDATE matches SET ${updates.join(', ')} WHERE id = $${i}`, values as string[]);
 }
 
 export async function getMatchById(id: string): Promise<Match | null> {
   const sql = getDb();
-  const rows = await sql<Match[]>`SELECT * FROM matches WHERE id = ${id} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM matches WHERE id = ${id} LIMIT 1`) as unknown as Match[];
   return rows[0] ?? null;
 }
 
@@ -225,9 +225,9 @@ export async function getOnboardingSession(
   telegramId: number
 ): Promise<OnboardingSessionRow['session'] | null> {
   const sql = getDb();
-  const rows = await sql<Array<{ session: OnboardingSessionRow['session'] }>>`
+  const rows = (await sql`
     SELECT session FROM onboarding_sessions WHERE telegram_id = ${telegramId} LIMIT 1
-  `;
+  `) as unknown as Array<{ session: OnboardingSessionRow['session'] }>;
   return rows[0]?.session ?? null;
 }
 
@@ -252,13 +252,13 @@ export async function deleteOnboardingSession(telegramId: number): Promise<void>
 
 export async function getEventByCode(code: string): Promise<Event | null> {
   const sql = getDb();
-  const rows = await sql<Event[]>`SELECT * FROM events WHERE UPPER(code) = ${code.toUpperCase()} LIMIT 1`;
+  const rows = (await sql`SELECT * FROM events WHERE UPPER(code) = ${code.toUpperCase()} LIMIT 1`) as unknown as Event[];
   return rows[0] ?? null;
 }
 
 export async function getEventPrompts(eventId: string): Promise<EventPrompt[]> {
   const sql = getDb();
-  return sql<EventPrompt[]>`SELECT * FROM event_prompts WHERE event_id = ${eventId} ORDER BY order_index ASC`;
+  return (await sql`SELECT * FROM event_prompts WHERE event_id = ${eventId} ORDER BY order_index ASC`) as unknown as EventPrompt[];
 }
 
 export async function saveUserEventResponses(
@@ -277,6 +277,6 @@ export async function saveUserEventResponses(
 
 export async function getEventSections(eventId: string): Promise<EventSection[]> {
   const sql = getDb();
-  return sql<EventSection[]>`SELECT * FROM event_sections WHERE event_id = ${eventId} ORDER BY created_at ASC`;
+  return (await sql`SELECT * FROM event_sections WHERE event_id = ${eventId} ORDER BY created_at ASC`) as unknown as EventSection[];
 }
 

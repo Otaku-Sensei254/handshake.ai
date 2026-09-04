@@ -57,9 +57,9 @@ export async function runMatchingCycle(): Promise<void> {
 
     // Get events with sections for section-aware matching
     const sql = getDb();
-    const sectionEvents = await sql`
+    const sectionEvents = (await sql`
       SELECT id, match_scope FROM events WHERE match_scope = 'section'
-    `;
+    `) as any[];
 
     let matchesFound = 0;
 

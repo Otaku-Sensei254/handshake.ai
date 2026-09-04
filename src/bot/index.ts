@@ -118,10 +118,10 @@ export async function createBot(): Promise<TelegramBot> {
       // Check if registered via web form (placeholder telegram_id, matched by username)
       if (msg.from?.username) {
         const sql = getDb();
-        const rows = await sql`
+        const rows = (await sql`
           SELECT * FROM users
           WHERE telegram_username = ${msg.from.username} AND telegram_id < 0 LIMIT 1
-        `;
+        `) as any[];
         const webUser = rows[0] as import('../types').User | undefined;
 
         if (webUser) {
