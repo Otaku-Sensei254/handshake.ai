@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import SiteHeader from "@/components/site-header";
+import PasswordField from "@/components/password-field";
 
 interface EventInfo {
   id: string;
@@ -222,79 +223,99 @@ function JoinPageContent({ eventCode }: { eventCode: string | undefined }) {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Profile Section */}
-              <div className="card p-6 sm:p-8 space-y-5">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-white">Your profile</p>
-                  <p className="text-xs text-[#71717a]">
-                    Tell us who you are so we can find the best matches for you.
-                  </p>
-                </div>
-
-                <Divider />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Full name" required>
-                    <input
-                      className="input"
-                      placeholder="Amina Odhiambo"
-                      value={form.name}
-                      onChange={set("name")}
-                      required
-                    />
-                  </Field>
-
-                  <Field label="Email" required hint="For notifications">
-                    <input
-                      className="input"
-                      type="email"
-                      placeholder="amina@example.com"
-                      value={form.email}
-                      onChange={set("email")}
-                      required
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Password" required hint="To secure your account">
-                  <input
-                    className="input"
-                    type="password"
-                    placeholder="••••••••"
-                    value={form.password}
-                    onChange={set("password")}
-                    required
-                    minLength={6}
-                  />
-                </Field>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Telegram username" hint="For match notifications">
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525b] text-sm select-none">
-                        @
-                      </span>
-                      <input
-                        className="input pl-7"
-                        placeholder="aminaodhiambo"
-                        value={form.telegram_username}
-                        onChange={set("telegram_username")}
-                      />
+            {/* Step progress */}
+            <div className="flex items-center justify-center gap-2 mb-8">
+              {["profile", "section", "prompts"].map((s, i) => {
+                const stepOrder = ["profile", "section", "prompts"];
+                const currentIndex = stepOrder.indexOf(step);
+                const isActive = s === step;
+                const isDone = stepOrder.indexOf(s) < currentIndex;
+                return (
+                  <div key={s} className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold ${
+                      isActive ? "bg-white text-black" : isDone ? "bg-[var(--success)] text-black" : "bg-[var(--surface-2)] text-[var(--muted-3)] border border-[var(--border)]"
+                    }`}>
+                      {isDone ? "✓" : i + 1}
                     </div>
-                  </Field>
+                    {i < 2 && <div className="w-8 h-px bg-[var(--border)]" />}
+                  </div>
+                );
+              })}
+            </div>
 
-                  <Field label="Phone number" hint="Optional — for SMS updates">
-                    <input
-                      className="input"
-                      placeholder="+254712345678"
-                      value={form.phone_number}
-                      onChange={set("phone_number")}
-                      type="tel"
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Profile Section */}
+              {(step === "profile" || step === "section" || step === "prompts") && (
+                <div className="card p-6 sm:p-8 space-y-5">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-white">Your profile</p>
+                    <p className="text-xs text-[#71717a]">
+                      Tell us who you are so we can find the best matches for you.
+                    </p>
+                  </div>
+
+                  <Divider />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Full name" required>
+                      <input
+                        className="input"
+                        placeholder="Amina Odhiambo"
+                        value={form.name}
+                        onChange={set("name")}
+                        required
+                      />
+                    </Field>
+
+                    <Field label="Email" required hint="For notifications">
+                      <input
+                        className="input"
+                        type="email"
+                        placeholder="amina@example.com"
+                        value={form.email}
+                        onChange={set("email")}
+                        required
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Password" required hint="To secure your account">
+                    <PasswordField
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
                     />
                   </Field>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Telegram username" hint="For match notifications">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525b] text-sm select-none">
+                          @
+                        </span>
+                        <input
+                          className="input pl-7"
+                          placeholder="aminaodhiambo"
+                          value={form.telegram_username}
+                          onChange={(e) => setForm((f) => ({ ...f, telegram_username: e.target.value }))}
+                        />
+                      </div>
+                    </Field>
+
+                    <Field label="Phone number" hint="Optional — for SMS updates">
+                      <input
+                        className="input"
+                        placeholder="+254712345678"
+                        value={form.phone_number}
+                        onChange={(e) => setForm((f) => ({ ...f, phone_number: e.target.value }))}
+                        type="tel"
+                      />
+                    </Field>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Section Selection */}
               {step === "section" && sections.length > 0 && (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
+import PasswordField from "@/components/password-field";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,10 +44,13 @@ export default function LoginPage() {
       <div className="relative z-10 min-h-screen flex flex-col">
         <SiteHeader />
 
-        <main className="flex-1 px-4 py-10 sm:py-16">
-          <div className="max-w-sm mx-auto">
-            <div className="mb-8 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight text-white leading-[1.15]">
+        <main className="flex-1 flex items-center justify-center px-4 py-12 sm:py-16">
+          <div className="w-full max-w-sm">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white text-black font-bold text-lg mb-4">
+                H
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">
                 Welcome back
               </h1>
               <p className="text-[var(--muted)] text-sm mt-2">
@@ -54,33 +58,31 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="card p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="card p-6 space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-sm text-[#a1a1aa]">Email</label>
+                <label className="block text-sm font-medium text-[var(--fg)]">Email</label>
                 <input
                   className="input"
                   type="email"
-                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm text-[#a1a1aa]">Password</label>
-                <input
-                  className="input"
-                  type="password"
-                  placeholder="••••••••"
+                <label className="block text-sm font-medium text-[var(--fg)]">Password</label>
+                <PasswordField
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   required
                 />
               </div>
 
               {error && (
-                <p className="text-sm text-[#f87171] bg-[#450a0a] border border-[#7f1d1d] rounded-lg px-3 py-2">
+                <p className="text-sm text-[var(--error)] bg-[var(--error-bg)] border border-[var(--error-border)] rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -93,7 +95,7 @@ export default function LoginPage() {
                 {loading ? "Logging in…" : "Log in →"}
               </button>
 
-              <p className="text-center text-xs text-[#52525b]">
+              <p className="text-center text-xs text-[var(--muted-3)]">
                 Don&apos;t have an account?{" "}
                 <Link href="/register" className="text-white underline underline-offset-2">
                   Register

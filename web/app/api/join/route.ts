@@ -122,9 +122,20 @@ export async function POST(req: NextRequest) {
       responses: Array<{ prompt_id: string; prompt_text: string; response_text: string }>;
     };
 
-    if (!eventCode || !user?.name || !user?.telegram_username || !user?.role || !user?.description || !user?.goals || !user?.challenges || !user?.offers) {
+    if (!eventCode || !user?.name) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const profileData = {
+      name: user.name.trim(),
+      telegram_username: (user.telegram_username || '').trim() || undefined,
+      role: user.role?.trim() || 'Other',
+      description: user.description?.trim() || '',
+      goals: user.goals?.trim() || '',
+      challenges: user.challenges?.trim() || '',
+      offers: user.offers?.trim() || '',
+      phone_number: user.phone_number?.trim() || undefined,
+    };
 
     // 1. Look up event
     const event = await getEventByCode(eventCode);
@@ -144,21 +155,20 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Find or create user
-    let existingUser = await getUserByTelegramUsername(user.telegram_username);
+    let existingUser = await getUserByTelegramUsername(profileData.telegram_username || '');
     let userId: string;
 
     if (existingUser) {
       userId = existingUser.id;
       // Update existing user profile
       await updateUser(userId, {
-        name: user.name,
-        role: user.role,
-        description: user.description,
-        goals: user.goals,
-        challenges: user.challenges,
-        offers: user.offers,
-        phone_number: user.phone_number ?? null,
-        wallet_address: user.wallet_address ?? null,
+        name: profileData.name,
+        role: profileData.role,
+        description: profileData.description,
+        goals: profileData.goals,
+        challenges: profileData.challenges,
+        offers: profileData.offers,
+        phone_number: profileData.phone_number ?? null,
       });
     } else {
       // Gather enrichment context
@@ -186,8 +196,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Generate embeddings
-      const goalsText = [user.goals, ...enrichmentParts].join(". ");
-      const challengesText = [user.challenges, ...enrichmentParts].join(". ");
+      const goalsText = [profileData.goals, ...enrichmentParts].join(". ");
+      const challengesText = [profileData.challenges, ...enrichmentParts].join(". ");
 
       const [goalEmbedding, challengeEmbedding] = await Promise.all([
         generateGeminiEmbedding(goalsText),
@@ -198,14 +208,14 @@ export async function POST(req: NextRequest) {
       const placeholderTelegramId = -(Date.now() % 2147483647);
       const inserted = await sql`
         INSERT INTO users (
-          telegram_id, telegram_username, phone_number, wallet_address,
+          telegram_id, telegram_username, phone_number,
           name, role, description, goals, challenges, offers,
           enrichments, goal_embedding, challenge_embedding
         ) VALUES (
-          ${placeholderTelegramId}, ${user.telegram_username},
-          ${user.phone_number || null}, ${user.wallet_address || null},
-          ${user.name}, ${user.role}, ${user.description},
-          ${user.goals}, ${user.challenges}, ${user.offers},
+          ${placeholderTelegramId}, ${profileData.telegram_username || null},
+          ${profileData.phone_number || null},
+          ${profileData.name}, ${profileData.role}, ${profileData.description},
+          ${profileData.goals}, ${profileData.challenges}, ${profileData.offers},
           ${JSON.stringify(enrichments)}::jsonb,
           ${JSON.stringify(goalEmbedding)}::vector,
           ${JSON.stringify(challengeEmbedding)}::vector
@@ -220,7 +230,7 @@ export async function POST(req: NextRequest) {
 
     // 5. If there are responses, enrich profile and regenerate embeddings
     if (responses.length > 0) {
-      const currentUser = existingUser ?? await getUserByTelegramUsername(user.telegram_username);
+      const currentUser = existingUser ?? await getUserByTelegramUsername(profileData.telegram_username || '');
       if (currentUser) {
         try {
           const enriched = await enrichProfileWithEventResponses(currentUser, responses);
@@ -295,6 +305,14 @@ Offers: ${currentUser.offers}`;
   try {
     return JSON.parse(cleaned);
   } catch {
-    throw new Error(`Failed to parse enriched profile: ${cleaned}`);
+    // If enrichment fails, return the original profile unchanged
+    return {
+      name: currentUser.name,
+      role: currentUser.role,
+      description: currentUser.description,
+      goals: currentUser.goals,
+      challenges: currentUser.challenges,
+      offers: currentUser.offers,
+    };
   }
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
+import PasswordField from "@/components/password-field";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -45,20 +46,25 @@ export default function RegisterPage() {
       <div className="relative z-10 min-h-screen flex flex-col">
         <SiteHeader />
 
-        <main className="flex-1 px-4 py-10 sm:py-16">
-          <div className="max-w-sm mx-auto">
-            <div className="mb-8 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight text-white leading-[1.15]">
-                Create an account
+        <main className="flex-1 flex items-center justify-center px-4 py-12 sm:py-16">
+          <div className="w-full max-w-sm">
+            {/* Logo / brand */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white text-black font-bold text-lg mb-4">
+                H
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">
+                Create your account
               </h1>
               <p className="text-[var(--muted)] text-sm mt-2">
-                Get started with Handshake AI.
+                Join events and get matched with the right people.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="card p-6 space-y-5">
+            {/* Form card */}
+            <form onSubmit={handleSubmit} className="card p-6 space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-sm text-[#a1a1aa]">Username</label>
+                <label className="block text-sm font-medium text-[var(--fg)]">Username</label>
                 <input
                   className="input"
                   type="text"
@@ -72,7 +78,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm text-[#a1a1aa]">Email</label>
+                <label className="block text-sm font-medium text-[var(--fg)]">Email</label>
                 <input
                   className="input"
                   type="email"
@@ -84,10 +90,8 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm text-[#a1a1aa]">Password</label>
-                <input
-                  className="input"
-                  type="password"
+                <label className="block text-sm font-medium text-[var(--fg)]">Password</label>
+                <PasswordField
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -97,7 +101,7 @@ export default function RegisterPage() {
               </div>
 
               {error && (
-                <p className="text-sm text-[#f87171] bg-[#450a0a] border border-[#7f1d1d] rounded-lg px-3 py-2">
+                <p className="text-sm text-[var(--error)] bg-[var(--error-bg)] border border-[var(--error-border)] rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -110,13 +114,17 @@ export default function RegisterPage() {
                 {loading ? "Creating account…" : "Create account →"}
               </button>
 
-              <p className="text-center text-xs text-[#52525b]">
+              <p className="text-center text-xs text-[var(--muted-3)]">
                 Already have an account?{" "}
                 <Link href="/login" className="text-white underline underline-offset-2">
                   Log in
                 </Link>
               </p>
             </form>
+
+            <p className="text-center text-[10px] text-[var(--muted-3)] mt-6">
+              By signing up, you agree to our Terms and Privacy Policy.
+            </p>
           </div>
         </main>
       </div>

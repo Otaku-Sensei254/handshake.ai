@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   }, 10_000);
 
   // Start a tiny HTTP server so Render free-tier Web Service detects an open port
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = parseInt(process.env.PORT || '5000', 10);
   const http = await import('http');
   const server = http.createServer((_req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
