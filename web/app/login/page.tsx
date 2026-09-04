@@ -32,7 +32,6 @@ export default function LoginPage() {
       }
 
       router.push("/dashboard");
-      router.refresh();
     } catch {
       setError("Could not reach the server");
       setLoading(false);

@@ -39,11 +39,20 @@ export async function POST(req: NextRequest) {
     const token = generateToken();
     await sql`UPDATE users SET session_token = ${token} WHERE id = ${user.id}`;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: { id: user.id, username: user.telegram_username, email: user.email, name: user.name },
-      token,
     });
+
+    response.cookies.set("session_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: "/",
+    });
+
+    return response;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal error";
     console.error("[auth/login]", err);
