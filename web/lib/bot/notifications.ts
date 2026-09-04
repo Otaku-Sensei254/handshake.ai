@@ -64,14 +64,14 @@ export async function sendMatchNotification(
   if (userA.telegram_id < 0) {
     console.warn(
       `[Notifications] Skipping match notification to ${userA.name} — hasn't started the bot yet. ` +
-      `Ask them to message @HandshakeBot with /start to link their account.`
+      `Ask them to message @kuonabot with /start to link their account.`
     );
     return;
   }
   if (userB.telegram_id < 0) {
     console.warn(
       `[Notifications] Skipping match notification to ${userB.name} — hasn't started the bot yet. ` +
-      `Ask them to message @HandshakeBot with /start to link their account.`
+      `Ask them to message @kuonabot with /start to link their account.`
     );
     return;
   }
@@ -127,7 +127,7 @@ export async function sendMatchNotificationToUser(
   if (notifyUser.telegram_id < 0) {
     console.warn(
       `[Notifications] Skipping match notification to ${notifyUser.name} — hasn't started the bot yet. ` +
-      `Ask them to message @HandshakeBot with /start to link their account.`
+      `Ask them to message @kuonabot with /start to link their account.`
     );
     return;
   }
@@ -167,14 +167,14 @@ export async function initiateCallsForMatch(match: Match): Promise<void> {
   if (userA.telegram_id < 0) {
     console.warn(
       `[Notifications] Skipping intro to ${userA.name} — hasn't started the bot yet. ` +
-      `Ask them to message @HandshakeBot with /start to link their account.`
+      `Ask them to message @kuonabot with /start to link their account.`
     );
     return;
   }
   if (userB.telegram_id < 0) {
     console.warn(
       `[Notifications] Skipping intro to ${userB.name} — hasn't started the bot yet. ` +
-      `Ask them to message @HandshakeBot with /start to link their account.`
+      `Ask them to message @kuonabot with /start to link their account.`
     );
     return;
   }
