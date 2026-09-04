@@ -11,6 +11,14 @@ const SCORE_THRESHOLD = parseFloat(process.env.MATCH_SCORE_THRESHOLD ?? '0.72');
 export async function POST(req: NextRequest) {
   const enc = new TextEncoder();
 
+  function isActive(controller: ReadableStreamDefaultController): boolean {
+    try {
+      return controller.desiredSize !== null;
+    } catch {
+      return false;
+    }
+  }
+
   function sseEvent(event: string, data: unknown): Uint8Array {
     return enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
@@ -27,41 +35,46 @@ export async function POST(req: NextRequest) {
           ]);
 
           if (!userA || !userB) {
-            controller.enqueue(sseEvent("error", { message: "Users not found" }));
+            if (isActive(controller)) controller.enqueue(sseEvent("error", { message: "Users not found" }));
             controller.close();
             return;
           }
 
-          controller.enqueue(sseEvent("phase", { phase: "scanning", userA: { name: userA.name, role: userA.role }, userB: { name: userB.name, role: userB.role } }));
+          if (isActive(controller)) controller.enqueue(sseEvent("phase", { phase: "scanning", userA: { name: userA.name, role: userA.role }, userB: { name: userB.name, role: userB.role } }));
 
           await new Promise((r) => setTimeout(r, 800));
 
-          controller.enqueue(sseEvent("phase", { phase: "negotiating" }));
+          if (isActive(controller)) controller.enqueue(sseEvent("phase", { phase: "negotiating" }));
 
           let savedMatchId: string | null = null;
 
           await runAgentNegotiationStreaming(userA as User, userB as User, {
             onTurnStart: (agent, name, turn) => {
+              if (!isActive(controller)) return;
               try {
                 controller.enqueue(sseEvent("turn_start", { agent, name, turn }));
               } catch (e) {}
             },
             onToken: (agent, text) => {
+              if (!isActive(controller)) return;
               try {
                 controller.enqueue(sseEvent("token", { agent, text }));
               } catch (e) {}
             },
             onTurnEnd: (agent, turn) => {
+              if (!isActive(controller)) return;
               try {
                 controller.enqueue(sseEvent("turn_end", { agent, turn }));
               } catch (e) {}
             },
             onScoring: () => {
+              if (!isActive(controller)) return;
               try {
                 controller.enqueue(sseEvent("phase", { phase: "scoring" }));
               } catch (e) {}
             },
             onResult: async (result) => {
+              if (!isActive(controller)) return;
               const isHighConfidence =
                 result.agentAScore > SCORE_THRESHOLD && result.agentBScore > SCORE_THRESHOLD;
 
@@ -106,7 +119,7 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';
           try {
-            controller.enqueue(sseEvent("error", { message }));
+            if (isActive(controller)) controller.enqueue(sseEvent("error", { message }));
           } catch (e) {}
         } finally {
           try {
