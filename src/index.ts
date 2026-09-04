@@ -46,6 +46,17 @@ async function main(): Promise<void> {
     );
   }, 10_000);
 
+  // Start a tiny HTTP server so Render free-tier Web Service detects an open port
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const http = await import('http');
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', service: 'handshake-bot' }));
+  });
+  server.listen(port, () => {
+    console.log(`✅ Health server listening on port ${port}`);
+  });
+
   console.log('');
   console.log('✅ Handshake is live. Waiting for users...');
 
@@ -53,12 +64,14 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down...');
     if (config.telegram.usePolling) bot.stopPolling();
+    server.close();
     process.exit(0);
   });
 
   process.on('SIGINT', () => {
     console.log('SIGINT received, shutting down...');
     if (config.telegram.usePolling) bot.stopPolling();
+    server.close();
     process.exit(0);
   });
 }

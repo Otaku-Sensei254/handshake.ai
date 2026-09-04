@@ -3,4 +3,6 @@ dist/
 .env
 *.js.map
 .claude/
+.kilo/
+*.md
 env.txt
