@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/bot`;
+  const webhookUrl = `${process.env.BASE_URL}/api/bot`;
 
   const res = await fetch(
     `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook`,

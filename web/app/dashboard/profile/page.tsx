@@ -1,7 +1,7 @@
 import DashboardShell from "@/components/dashboard-shell";
 
 async function getUser() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const base = process.env.BASE_URL || "http://localhost:3000";
   try {
     const res = await fetch(`${base}/api/auth/me`, { 
       cache: "no-store",

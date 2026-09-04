@@ -2,7 +2,7 @@ import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 
 async function getEvents() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const base = process.env.BASE_URL || "http://localhost:3000";
   try {
     const res = await fetch(`${base}/api/events`, { 
       cache: "no-store",

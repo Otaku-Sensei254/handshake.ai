@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import DashboardShell from "@/components/dashboard-shell";
 
 async function getMatches() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const base = process.env.BASE_URL || "http://localhost:3000";
   try {
     const res = await fetch(`${base}/api/dashboard/matches`, { 
       cache: "no-store",
